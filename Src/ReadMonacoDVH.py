@@ -66,6 +66,8 @@ def JSONtoDict(JSONfile):
 
 curFile=xlrd.open_workbook('D:\Projects\SCR\Data\CSI1\CSI1_Tomo.xlsx')
 curSheet=curFile.sheet_by_name('CSI1_Tomo')
+curCol=curSheet.col_values(0)
+print(curCol)
 
 
 
