@@ -35,15 +35,6 @@ def ReadDVHDataMonaco(fp):
         #print(np.sum(curDVH['VolBins']),ROI)
     return dvhInfo
 
-def ReadTomo(fp):
-    DVHData = list()
-    curFile = xlrd.open_workbook(fp)
-    curSheet = curFile.sheet_by_name(pageName)
-    FrsCol = curSheet.col_values(FrsColNum)  # Frs column
-    MLDCol = curSheet.col_values(MLDColNum)  # MLD column
-    RPCol = curSheet.col_values(RPColNum)  # RP column
-    PDCol = curSheet.col_values(FrsColNum - 1)  # Prescription dose
-
 
 def WriteToJSON(data,fp):
     filepath=fp+'\\'+str(data['PatID'])+'_VMAT'+'.json'
@@ -89,7 +80,7 @@ print(ROIName,TotalVol)
 pl.plot(DoseCol[0:np.size(VolCol)],VolCol,linewidth=3.0)
 pl.xlim(0)
 pl.ylim(0,100)
-
+pl.grid(True)
 pl.show()
 
 
