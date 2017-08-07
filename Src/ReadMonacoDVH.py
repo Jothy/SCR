@@ -49,6 +49,18 @@ def JSONtoDict(JSONfile):
     JSONData.close()
     return DVHData
 
+#Dose in cGY,VOls in %
+def CumToDiffDVH(Doses,Vols,TotalVol):
+    nbins=np.size(Vols)
+    DiffVols=[]
+    DiffDoses=[]
+    for x in range(0,nbins-1,1):
+        DiffVols.append(((Vols[x]-Vols[x+1])*TotalVol)/100.0)
+        DiffDoses.append((Doses[x]+Doses[x+1])/2.0)
+    return DiffDoses,DiffVols
+
+
+
 
 # fp="D:\Projects\SCR\Data\CSI10\CSI10_VMAT_DVH_1.txt"
 # fw="D:\Projects\SCR\Data\CSI10"
@@ -65,17 +77,27 @@ DoseCol=DoseCol[2:np.size(DoseCol)]
 DoseCol = [x*100.0 for x in DoseCol]#Convert from Gy to cGy
 print(curSheet.ncols,":Cols")
 
+
+
 for x in range(1,curSheet.ncols,1):
     ROINum=x
     ROI=curSheet.col_values(ROINum)
     ROIName=ROI[1].split(sep='(')[0]
-    print(ROIName)
     TotalVol=np.float(ROI[1].split(sep='(')[2].split(sep=':')[1].split(sep=')')[0])
-    print(TotalVol)
     VolCol=ROI[2:np.size(ROI)]
     while '' in VolCol:
         VolCol.remove('')
     [float(i) for i in VolCol]
+    DiffDose=[]
+    DiffVols=[]
+    DiffDose,DiffVols=CumToDiffDVH(DoseCol,VolCol,TotalVol)
+    pl.plot(DiffDose,DiffVols,linewidth=3.0)
+
+
+pl.xlim(0)
+pl.ylim(0)
+pl.grid(True)
+pl.show()
 
 
 # print(ROIName,TotalVol)
