@@ -55,33 +55,35 @@ def JSONtoDict(JSONfile):
 # data=ReadDVHDataMonaco(fp)
 # WriteToJSON(data,fw)
 
-curFile=xlrd.open_workbook('D:\Projects\SCR\Data\CSI5_Tomo.xlsx')
+curFile=xlrd.open_workbook('D:\Projects\SCR\Data\CSI5\CSI5_Tomo.xlsx')
 curSheet=curFile.sheet_by_name('CSI5_Tomo')
 
 #Read the dose column first
 DoseCol=curSheet.col_values(0)
 DoseCol=DoseCol[2:np.size(DoseCol)]
-[float(i) for i in DoseCol]
+[float(i) for i in DoseCol]#convert to float
+DoseCol = [x*100.0 for x in DoseCol]#Convert from Gy to cGy
 print(curSheet.ncols,":Cols")
 
-ROINum=7
-ROI=curSheet.col_values(ROINum)
-ROIName=ROI[1].split(sep='(')[0]
-print(ROIName)
-TotalVol=np.float(ROI[1].split(sep='(')[2].split(sep=':')[1].split(sep=')')[0])
-print(TotalVol)
-VolCol=ROI[2:np.size(ROI)]
-while '' in VolCol:
-    VolCol.remove('')
-[float(i) for i in VolCol]
+for x in range(1,curSheet.ncols,1):
+    ROINum=x
+    ROI=curSheet.col_values(ROINum)
+    ROIName=ROI[1].split(sep='(')[0]
+    print(ROIName)
+    TotalVol=np.float(ROI[1].split(sep='(')[2].split(sep=':')[1].split(sep=')')[0])
+    print(TotalVol)
+    VolCol=ROI[2:np.size(ROI)]
+    while '' in VolCol:
+        VolCol.remove('')
+    [float(i) for i in VolCol]
 
 
-print(ROIName,TotalVol)
-pl.plot(DoseCol[0:np.size(VolCol)],VolCol,linewidth=3.0)
-pl.xlim(0)
-pl.ylim(0,100)
-pl.grid(True)
-pl.show()
+# print(ROIName,TotalVol)
+# pl.plot(DoseCol[0:np.size(VolCol)],VolCol,linewidth=3.0)
+# pl.xlim(0)
+# pl.ylim(0,100)
+# pl.grid(True)
+# pl.show()
 
 
 
