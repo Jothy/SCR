@@ -35,9 +35,51 @@ def ReadDVHDataMonaco(fp):
         #print(np.sum(curDVH['VolBins']),ROI)
     return dvhInfo
 
+fp='D:\Projects\SCR\Data\CSI5\CSI5_Tomo.xlsx'
+def ReadDVHDataTomoProton(fp):
+    dvhInfo ={}
+
+    curFile = xlrd.open_workbook(fp)
+    sheetName1=fp.split('\\')[-1]
+    sheetName2=sheetName1.split('.')[0]
+    curSheet = curFile.sheet_by_name(sheetName2)
+
+    PatID=sheetName2.split('_')[0]
+
+    dvhInfo['PatID'] = PatID
+    dvhInfo['PlanName'] = sheetName2
+    dvhInfo['DoseUnits'] = "cGy"
+    dvhInfo['VolumeUnits'] = "cc"
+
+    # Read the dose column first
+    DoseCol = curSheet.col_values(0)
+    DoseCol = DoseCol[2:np.size(DoseCol)]
+    [float(i) for i in DoseCol]  # convert to float
+    DoseCol = [x * 100.0 for x in DoseCol]  # Convert from Gy to cGy
+    #print(curSheet.ncols, ":Cols")
+    for x in range(1, curSheet.ncols, 1):
+        ROINum = x
+        ROI = curSheet.col_values(ROINum)
+        ROIName = ROI[1].split(sep='(')[0]
+        TotalVol = np.float(ROI[1].split(sep='(')[2].split(sep=':')[1].split(sep=')')[0])
+        VolCol = ROI[2:np.size(ROI)]
+        while '' in VolCol:
+            VolCol.remove('')
+        [float(i) for i in VolCol]
+        DiffDose = []
+        DiffVols = []
+        DiffDose, DiffVols = CumToDiffDVH(DoseCol, VolCol, TotalVol)
+        pl.plot(DiffDose, DiffVols, linewidth=3.0)
+
+        curDVH = {}
+        curDVH['DoseBins'] = DiffDose
+        curDVH['VolBins'] = DiffVols
+        dvhInfo[str(ROIName)] =curDVH
+    return dvhInfo
+
 
 def WriteToJSON(data,fp):
-    filepath=fp+'\\'+str(data['PatID'])+'_VMAT'+'.json'
+    filepath=fp+'\\'+str(data['PatID'])+'_Proton'+'.json'
     with open(filepath,'w') as OutFile:
         js.dump(data, OutFile)
         #print(filepath,':Written')
@@ -67,56 +109,9 @@ def CumToDiffDVH(Doses,Vols,TotalVol):
 # data=ReadDVHDataMonaco(fp)
 # WriteToJSON(data,fw)
 
-curFile=xlrd.open_workbook('D:\Projects\SCR\Data\CSI5\CSI5_Tomo.xlsx')
-curSheet=curFile.sheet_by_name('CSI5_Tomo')
 
-#Read the dose column first
-DoseCol=curSheet.col_values(0)
-DoseCol=DoseCol[2:np.size(DoseCol)]
-[float(i) for i in DoseCol]#convert to float
-DoseCol = [x*100.0 for x in DoseCol]#Convert from Gy to cGy
-print(curSheet.ncols,":Cols")
-
-
-
-for x in range(1,curSheet.ncols,1):
-    ROINum=x
-    ROI=curSheet.col_values(ROINum)
-    ROIName=ROI[1].split(sep='(')[0]
-    TotalVol=np.float(ROI[1].split(sep='(')[2].split(sep=':')[1].split(sep=')')[0])
-    VolCol=ROI[2:np.size(ROI)]
-    while '' in VolCol:
-        VolCol.remove('')
-    [float(i) for i in VolCol]
-    DiffDose=[]
-    DiffVols=[]
-    DiffDose,DiffVols=CumToDiffDVH(DoseCol,VolCol,TotalVol)
-    pl.plot(DiffDose,DiffVols,linewidth=3.0)
-
-
-pl.xlim(0)
-pl.ylim(0)
-pl.grid(True)
-pl.show()
-
-
-# print(ROIName,TotalVol)
-# pl.plot(DoseCol[0:np.size(VolCol)],VolCol,linewidth=3.0)
-# pl.xlim(0)
-# pl.ylim(0,100)
-# pl.grid(True)
-# pl.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
+fp='D:\Projects\SCR\Data\CSI1\CSI1_Proton.xlsx'
+fw="D:\Projects\SCR\Data\CSI1"
+data=ReadDVHDataTomoProton(fp)
+WriteToJSON(data,fw)
 

@@ -1,54 +1,10 @@
 import os
 import numpy as np
+import numpy.random as npr
+import pylab
 import json as js
 import pylab as pl
 from scipy import integrate as Itg
-
-# path='H:\Docs\Research\TCH\Second malignancy\BrstStudy'
-# file1=path+'\\'+'1925520_Study2IMRT_DVH_1.txt'
-# file2=path+'\\'+'1925520_Study2VMAT_DVH_1.txt'
-
-def ReadDVHData(fp):
-    dvhInfo={}
-    fdata = open(fp, 'r')
-    lines = fdata.readlines()
-    fdata.close()
-    nlines = np.size(lines)
-    dvhInfo['PatID']=str(int(str(lines[0]).split('|')[0].split('~')[1]))
-    dvhInfo['PlanName']=str(lines[0]).split('|')[1].split(':')[1]
-    dvhInfo['DoseUnits'] = str(lines[0]).split('|')[4].split(':')[1]
-    dvhInfo['VolumeUnits'] = str(lines[0]).split('|')[5].split(':')[1][0:4]
-    #print(dvhInfo['PatID'],dvhInfo['PlanName'],dvhInfo['DoseUnits'],dvhInfo['VolumeUnits'])
-    #Remove headers & footers
-    linesFiltered=lines[3:(nlines-3)]
-    doses=[]
-    volumes=[]
-    for x in range(0,np.size(linesFiltered),1):
-       doses.append(np.float(linesFiltered[x].split('                   ')[1]))
-       volumes.append(np.float(linesFiltered[x].split('                   ')[2]))
-    dvhStartStopIndices=[item for item in range(len(doses)) if doses[item] == 0]
-    dvhStartStopIndices.append(np.size(linesFiltered))
-    for x in range(0,np.size(dvhStartStopIndices)-1,1):
-        curDVH = {}
-        curDVH['DoseBins']=doses[dvhStartStopIndices[x]:dvhStartStopIndices[x+1]]
-        curDVH['VolBins']=volumes[dvhStartStopIndices[x]:dvhStartStopIndices[x+1]]
-        ROI=linesFiltered[dvhStartStopIndices[x]].split('                   ')[0]
-        dvhInfo[str(ROI)]=curDVH
-        #print(np.sum(curDVH['VolBins']),ROI)
-    return dvhInfo
-
-def WriteToJSON(data,fp):
-    filepath=fp+'\\'+str(data['PatID'])+'.json'
-    with open(filepath,'w') as OutFile:
-        js.dump(data, OutFile)
-        #print(filepath,':Written')
-
-#Converts JSON to python dict
-def JSONtoDict(JSONfile):
-    JSONData=open(JSONfile)
-    DVHData=js.load(JSONData)
-    JSONData.close()
-    return DVHData
 
 
 def CalcOEDLinear(DoseBins,VolBins):
@@ -82,7 +38,6 @@ def CalcOEDPlateau(DoseBins,VolBins,alpha):
         RED=(1.0-np.exp(-(alpha*DoseBin)))/(alpha)
         OED.append(VolBins[x]*RED)
     return np.sum(OED)*(1.0/totalVol)
-
 
 
 def CalcOEDMechanistic(DoseBins,VolBins,alpha,ab,R,n):
@@ -166,6 +121,14 @@ def CalcgEUD(DoseBins,VolBins,n):
     return (EUD**n)
 
 
+def BootstrapCI(data, num_samples, statistic, alpha):
+    """Returns bootstrap estimate of 100.0*(1-alpha) CI for statistic."""
+    samples = npr.choice(data, size=(num_samples, len(data)), replace=True)
+    stat = np.sort(statistic(samples, 1))
+    return (stat[int((alpha/2.0)*num_samples)],
+            stat[int((1-alpha/2.0)*num_samples)])
+
+
 #Calculates integral dose in litre-Gy units
 def CalcIntegralDose(DoseBins,VolBins):
     MeanDose=CalcgEUD(DoseBins,VolBins,1)/100.0#(convert cGy to Gy)
@@ -179,73 +142,151 @@ def CalcProbSurvival(age_a):
     #print(prob, "...")
     return prob
 
+#Converts JSON to python dict
+def JSONtoDict(JSONfile):
+    JSONData=open(JSONfile)
+    DVHData=js.load(JSONData)
+    JSONData.close()
+    return DVHData
 
 
-# #plot of probability of surviving till age x from age 39
-# S_ae=[]
-# age_e=[]
-# for x in np.arange(39.0,81.0,1):
-#     S_ae.append(CalcProbSurvival(x))
-#     age_e.append(x)
+
+# data1=[16.69,	19.91,	19.82,	18.00,	17.07,	14.82,	17.88,	19.30,	15.63,	18.04]
+# data2=[13.00,	14.19,	13.76,	11.75,	11.60,	9.10,	13.85,	13.92,	9.88,	9.90]
+# data3=[12.75,	14.22,	13.77,	11.78,	11.22,	9.39,	12.38,	13.67,	10.57,	9.07]
+# data4=[9.89,	13.30,	11.07,	13.32,	9.60,	9.63,	9.75,	11.22,	12.15,	9.74]
+# data5=[0.64, 1.06,	1.09,	0.36,	0.33,	0.90,	0.23,	1.24,	1.06,	0.32]
 #
-# pl.plot(age_e,S_ae)
-# pl.show()
-
-
-
-# xLst=[]
-# yLst1=[]
-# yLst2=[]
-# mu1=CalcMFAge(30,70,-0.056,6.9)
-# mu2=CalcMFAge(30,70,-0.024,2.38)
-# Vol=[2000.0]
-# for x in np.arange(10,7000,1):
-#     Dose=[x]
-#     EAR1=CalcEAR(Dose,Vol,0.033,3.0,0.56,25,0.73,mu1)
-#     EAR2 = CalcEAR(Dose, Vol, 0.219, 3.0, 0.06, 25, 3.8, mu2)
-#     xLst.append(x/100.0)
-#     yLst1.append(EAR1)
-#     yLst2.append(EAR2)
 #
-# pl.plot(xLst,yLst1,linewidth=2.0)
-# pl.hold(True)
-# pl.plot(xLst,yLst2,linewidth=2.0)
-# pl.legend(['Rectum','Bladder'],loc=2)
-# pl.show()
-
-# #Read and pack files
-# folders=os.listdir(path)
-# print("No. of folders found:",np.size(folders))
-# for x in range(0,np.size(folders),1):
-#     files=os.listdir(path+"\\"+folders[x])
-#     curFile=path+"\\"+folders[x]+"\\"+files[1]#1 for vmat & 0 for IMRT
-#     data=ReadDVHData(curFile)
-#     print("Writing file...:",files[1],x,str(data['PatID']))
-#     #WriteToJSON(data,"H:\Docs\Research\TCH\Second malignancy\JSONs\IMRT")
-#     WriteToJSON(data,"H:\Desktop\BrstStudy-Updated Cord")
-
-
-AgeList=[53,45,63,56,71,57,65,64,51,62,60,51,44,71,50,54,41,70,57,53,60,54,41,51,83,69,59,43,72,54,62,40,52,66,43,48,51,65,48,58,54,42,51,49,43,53,72,42,54,56]
+# low,high=BootstrapCI(data1,1000000,np.mean,0.05)
+# print(np.round(low,2),np.round(high,2), "95% CI")
 #
-# path="H:\Docs\Research\TCH\Second malignancy\JSONs\VMAT"
-# files=os.listdir(path)
-# for x in range(0,np.size(files),1):
-#     curFile=path+"\\"+files[x]
-#     DVHs=JSONtoDict(curFile)
-#     try:
-#         DVH1=DVHs['Contralateral Breast']
-#         doses=DVH1['DoseBins']
-#         Vols=DVH1['VolBins']
-#         #OED=CalcOEDLinear(doses,Vols)
+# low,high=BootstrapCI(data2,1000000,np.mean,0.05)
+# print(np.round(low,2),np.round(high,2), "95% CI")
+#
+# low,high=BootstrapCI(data3,1000000,np.mean,0.05)
+# print(np.round(low,2),np.round(high,2), "95% CI")
+#
+# low,high=BootstrapCI(data4,1000000,np.mean,0.05)
+# print(np.round(low,2),np.round(high,2), "95% CI")
+#
+# low,high=BootstrapCI(data5,1000000,np.mean,0.05)
+# print(np.round(low,2),np.round(high,2), "95% CI")
+
+path="D:\\Projects\\SCR\\Data\\CSI_JSONs\\Protons"
+files=os.listdir(path)
+for x in range(0,np.size(files),1):
+     curFile=path+"\\"+files[x]
+     #print(curFile)
+     DVHs=JSONtoDict(curFile)
+     try:
+         DVH1=DVHs['Bowel Bag ']
+         doses=DVH1['DoseBins']
+         Vols=DVH1['VolBins']
+         #OED=CalcOEDLinear(doses,Vols)
+         #MeanDose=CalcgEUD(doses,Vols,1)
 #         #OED=CalcOEDPlateau(doses,Vols,0.009)
 #         #OED=CalcOEDBell(doses,Vols,0.009)
-#         #OED=CalcOEDMechanistic(doses,Vols,0.018,3.0,0.93,25)
+         OED=CalcOEDMechanistic(doses,Vols,0.089,3.0,0.17,20)
 #         #OED=CalcIntegralDose(doses,Vols)
 #         mu=CalcMFAge(30.0,70.0,-0.037,1.7)
 #         EAR=CalcEAR(doses,Vols,0.044 ,3.0,0.15,25,8.0,mu)
-#         print(EAR)
-#     except:
-#         print("ROI not found:",curFile)
+         print(OED)
+     except:
+         print("ROI not found:",curFile)
+print('************************************')
+#
+# path="D:\\Projects\\SCR\\Data\\CSI_JSONs\\IMRT"
+# files=os.listdir(path)
+# for x in range(0,np.size(files),1):
+#      curFile=path+"\\"+files[x]
+#      #print(curFile)
+#      DVHs=JSONtoDict(curFile)
+#      try:
+#          DVH1=DVHs['Stomach']
+#          doses=DVH1['DoseBins']
+#          Vols=DVH1['VolBins']
+#          #OED=CalcOEDLinear(doses,Vols)
+#          MeanDose=CalcgEUD(doses,Vols,1)
+# #         #OED=CalcOEDPlateau(doses,Vols,0.009)
+# #         #OED=CalcOEDBell(doses,Vols,0.009)
+# #         #OED=CalcOEDMechanistic(doses,Vols,0.018,3.0,0.93,25)
+# #         #OED=CalcIntegralDose(doses,Vols)
+# #         mu=CalcMFAge(30.0,70.0,-0.037,1.7)
+# #         EAR=CalcEAR(doses,Vols,0.044 ,3.0,0.15,25,8.0,mu)
+#          print(MeanDose/100.0)
+#      except:
+#          print("ROI not found:",curFile)
+# print('************************************')
+#
+# path="D:\\Projects\\SCR\\Data\\CSI_JSONs\\VMAT"
+# files=os.listdir(path)
+# for x in range(0,np.size(files),1):
+#      curFile=path+"\\"+files[x]
+#      #print(curFile)
+#      DVHs=JSONtoDict(curFile)
+#      try:
+#          DVH1=DVHs['Stomach']
+#          doses=DVH1['DoseBins']
+#          Vols=DVH1['VolBins']
+#          #OED=CalcOEDLinear(doses,Vols)
+#          MeanDose=CalcgEUD(doses,Vols,1)
+# #         #OED=CalcOEDPlateau(doses,Vols,0.009)
+# #         #OED=CalcOEDBell(doses,Vols,0.009)
+# #         #OED=CalcOEDMechanistic(doses,Vols,0.018,3.0,0.93,25)
+# #         #OED=CalcIntegralDose(doses,Vols)
+# #         mu=CalcMFAge(30.0,70.0,-0.037,1.7)
+# #         EAR=CalcEAR(doses,Vols,0.044 ,3.0,0.15,25,8.0,mu)
+#          print(MeanDose/100.0)
+#      except:
+#          print("ROI not found:",curFile)
+# print('************************************')
+#
+# path="D:\\Projects\\SCR\\Data\\CSI_JSONs\\Tomo"
+# files=os.listdir(path)
+# for x in range(0,np.size(files),1):
+#      curFile=path+"\\"+files[x]
+#      #print(curFile)
+#      DVHs=JSONtoDict(curFile)
+#      try:
+#          DVH1=DVHs['Stomach ']
+#          doses=DVH1['DoseBins']
+#          Vols=DVH1['VolBins']
+#          #OED=CalcOEDLinear(doses,Vols)
+#          MeanDose=CalcgEUD(doses,Vols,1)
+# #         #OED=CalcOEDPlateau(doses,Vols,0.009)
+# #         #OED=CalcOEDBell(doses,Vols,0.009)
+# #         #OED=CalcOEDMechanistic(doses,Vols,0.018,3.0,0.93,25)
+# #         #OED=CalcIntegralDose(doses,Vols)
+# #         mu=CalcMFAge(30.0,70.0,-0.037,1.7)
+# #         EAR=CalcEAR(doses,Vols,0.044 ,3.0,0.15,25,8.0,mu)
+#          print(MeanDose/100.0)
+#      except:
+#          print("ROI not found:",curFile)
+# print('************************************')
+#
+#
+# path="D:\\Projects\\SCR\\Data\\CSI_JSONs\\Protons"
+# files=os.listdir(path)
+# for x in range(0,np.size(files),1):
+#      curFile=path+"\\"+files[x]
+#      #print(curFile)
+#      DVHs=JSONtoDict(curFile)
+#      try:
+#          DVH1=DVHs['Stomach ']
+#          doses=DVH1['DoseBins']
+#          Vols=DVH1['VolBins']
+#          #OED=CalcOEDLinear(doses,Vols)
+#          MeanDose=CalcgEUD(doses,Vols,1)
+# #         #OED=CalcOEDPlateau(doses,Vols,0.009)
+# #         #OED=CalcOEDBell(doses,Vols,0.009)
+# #         #OED=CalcOEDMechanistic(doses,Vols,0.018,3.0,0.93,25)
+# #         #OED=CalcIntegralDose(doses,Vols)
+# #         mu=CalcMFAge(30.0,70.0,-0.037,1.7)
+# #         EAR=CalcEAR(doses,Vols,0.044 ,3.0,0.15,25,8.0,mu)
+#          print(MeanDose/100.0)
+#      except:
+#          print("ROI not found:",curFile)
 
 
 # curFile="H:\\Docs\\Research\\TCH\\Second malignancy\\JSONs\\VMAT\\2003750.json"
@@ -296,36 +337,4 @@ AgeList=[53,45,63,56,71,57,65,64,51,62,60,51,44,71,50,54,41,70,57,53,60,54,41,51
 # pl.ylabel('OED (Gy)',fontsize=20)
 # pl.show()
 # #End of loacl dose-effect curves for various models
-
-
-#Calculate LAR #
-path="H:\Docs\Research\TCH\Second malignancy\JSONs\IMRT"
-files=os.listdir(path)
-LARList=[]
-RRList=[]
-for x in range(0,np.size(files),1):
-    curFile=path+"\\"+files[x]
-    DVHs=JSONtoDict(curFile)
-    DVH1=DVHs['Rt Lung']
-    doses=DVH1['DoseBins']
-    Vols=DVH1['VolBins']
-    FinalLAR=0
-    LAR=CalcLAR(doses,Vols,0.042,3.0,0.83,25,8.0,1.17,AgeList[x],75)
-    if LAR<0.0:
-        LAR=0.0
-    print(LAR)
-    RR=(LAR+49.4)/49.4
-    RRList.append(RR)
-    LARList.append(LAR)
-# print(np.mean(LARList),np.std(LARList))
-# print(np.mean(RRList),np.std(RRList))
-
-
-
-
-
-
-
-
-
 
